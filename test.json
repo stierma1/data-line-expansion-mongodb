@@ -1,0 +1,1 @@
+[{"key":"bob","from":"mongo","args":{"name":"bob","subscriber":"mongo"},"type":"console"},{"key":"mongo","from":"poll6","args":{"name":"mongo","key":"poll6","connectionString":"mongodb://localhost:27017/test","collectionName":"testDocs"},"type":"bc-mongo-query-iterate-all"},{"key":"poll6","from":null,"args":{"name":"poll6","interval":6000},"type":"poll"}]
