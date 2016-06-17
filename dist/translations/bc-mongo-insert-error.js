@@ -1,35 +1,47 @@
 
 //require("babel-polyfill")
-var RX = require("rx");
+var Rx = require("rx");
 var MongoWrapper = require("../mongo-wrapper");
 
 function vapor(args, dataSources) {
-  dataSources.get("creationMap").set(args.name, args.key, args, "mongo-insert-one");
+  dataSources.get("creationMap").set(args.name, args.key, args, "bc-mongo-insert-error");
 }
 
 module.exports = function (args, dataSources) {
   var name = args.name;
   var connectString = args.connectionString;
   var collectionName = args.collectionName;
+
   var dataSource = dataSources.get(args.key);
 
-  var subscription = dataSource.subscribe(function (data) {
-    if (data === null || data === undefined) {
-      subscription.dispose();
-      dataSources.get("dataSinkInstances").remove(args.name);
-      return;
+  var failSentinel = {};
+  var source = dataSource.map(function (v) {
+    return Rx.Observable.throw(v);
+  }).map(function (val) {
+    if (val instanceof Rx.Observable) {
+      return val.catch(function (val) {
+        return Rx.Observable.return({ d: val, f: failSentinel });
+      });
+    } else {
+      return Rx.Observable.return({ d: val, f: false });
     }
-    MongoWrapper.connectToMongo(connectString).then(function (db) {
-      return MongoWrapper.insertOne(db, collectionName, data);
-    });
-  }, function (err) {
-    console.log(err);
-  }, function () {
-    dataSources.get("dataSinkInstances").remove(args.name);
-  });
+  }).selectMany(function (val) {
+    return val;
+  }).where(function (data) {
+    console.log("DASD");
+    if (!(!data.f || data.f !== failSentinel)) {
+      MongoWrapper.connectToMongo(connectString).then(function (db) {
+        return MongoWrapper.insertOne(db, collectionName, { name: args.name, time: Date.now(), error: data.d });
+      });
+    }
+    return !data.f || data.f !== failSentinel;
+  }).map(function (data) {
+    console.log("Good");
+    return data.d;
+  }).publish().refCount();
 
   vapor(args, dataSources);
-  dataSources.get("dataSinkInstances").set(args.name, subscription);
+  dataSources.set(args.name, source);
 };
 
 module.exports.vapor = vapor;
@@ -74,5 +86,5 @@ module.exports.getArguments = function _callee(prompt, dataSources) {
 };
 
 module.exports.initialize = function (dataSources) {
-  dataSources.get("translations").set("mongo-insert-one", module.exports);
+  dataSources.get("translations").set("bc-mongo-insert-error", module.exports);
 };

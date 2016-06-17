@@ -27,7 +27,6 @@ function bumpCursor(cursor, onNext, onCompleted, db, collectionName) {
         }
 
         if (doc) {
-          console.log(doc);
           db.collection(collectionName).remove({ _id: doc._id }, { justOne: true }, function (err) {
             onNext(doc);
             res(doc);
@@ -53,7 +52,7 @@ module.exports = function (args, dataSources) {
   var projection = args.projection;
   var connectString = args.connectionString;
   var collectionName = args.collectionName;
-  console.log("DASDD");
+
   var source = RX.Observable.create(function (observer) {
     var _db = null;
     MongoWrapper.connectToMongo(connectString).then(function (db) {
